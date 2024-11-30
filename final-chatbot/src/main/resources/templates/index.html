@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatBot with Voice Messages</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet"> <!-- Font Awesome -->
+    <script src='https://kit.fontawesome.com/a076d05399.js' crossorigin='anonymous'></script>
+    <script src='https://kit.fontawesome.com/a076d05399.js' crossorigin='anonymous'></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 0;
+          height: 91vh;
+          width:100%;
+          background-color: #ffffff;
+          display: flex;
+<!--          flex-direction: column;-->
+        }
+
+    .chat-container {
+      flex: 1;
+      width: 100%;
+      padding: 5%;
+      margin: 20px auto;
+      background-color: #fff;
+      padding-bottom: 15%;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      overflow-y: auto;
+      position: relative;
+      height: 100%;
+    }
+ Media query for smaller screens (mobile devices) */
+@media screen and (max-width: 768px) {
+  .chat-container {
+    padding: 5%;          /* Adjust padding for mobile devices */
+    padding-bottom: 20%;  /* Increase bottom padding on smaller screens */
+  }
+}
+
+
+        .chat-box {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-bottom: 50px; /* Make space for the input section */
+          border-radius: 10px;
+        }
+
+        .chat-message {
+          padding: 10px;
+          border-radius: 10px;
+          max-width: 70%;
+          font-size: 16px;
+          line-height: 1.5;
+          word-wrap: break-word;
+          white-space: pre-wrap;
+        }
+
+        .chat-message.bot {
+          background-color: #e1f7d5;
+          align-self: flex-start;
+           padding-bottom: 20px;
+
+        }
+
+        .chat-message.user {
+          background-color: #dcf8c6;
+          align-self: flex-end;
+        }
+
+        .loading, .recording {
+          text-align: center;
+          font-size: 20px;
+          color: #2bff00;
+          display: none;
+        }
+
+        .input-container {
+          position: fixed;
+          bottom: 30px;
+          left: 20px;
+          right: 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background-color: #fff;
+          padding: 10px;
+          box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+          border-radius: 10px;
+        }
+
+        #textInput {
+          width: 80%;
+          padding: 30px;
+          margin-top: 10px;
+           border: none;
+           outline: none;
+           font-size: 16px;
+           position:relative;
+
+        }
+
+        button {
+         position:relative;
+        margin-right:2%;
+          padding: 10px 20px;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 16px;
+        }
+
+
+
+        #recordingButton {
+        position:relative;
+          background-color: #d1cece;
+          color: black;
+        }
+
+        #stopButton {
+          background-color: #d1cece;
+          color: red;
+          display: none;
+        }
+
+        #sendAudioButton {
+          background-color: #d1cece;
+          color: white;
+          display: none;
+        }
+
+        #sendTextButton {
+
+          background-color: #d1cece;
+<!--          border-radius: 50%;-->
+          color: white;
+        }
+
+
+     #textToSpeechButton {
+  background-color: #005288; /* Initial background color */
+  color: white;
+  display: inline-block;
+  padding: 8px;
+  border-radius: 50%;
+  font-size: 24px;
+  border: none;
+  cursor: pointer;
+  position: absolute;
+  top: 30px; /* Position it near the top of the input container */
+  left: 10px; /* Position it on the left side */
+  transition: background-color 0.3s ease; /* Smooth transition */
+}
+
+#textToSpeechButton:hover {
+  background-color: #d1cece; /* Matches the yellow in the logo */
+}
+
+
+
+
+
+
+
+        #loadingMessage, #recordingMessage {
+          font-size: 20px;
+          color: #086016;
+          text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+<!-- Chatbot Container -->
+<div class="chat-container">
+    <div class="chat-box" id="chatBox"></div>
+    <div class="loading" id="loadingMessage">Bot is typing...</div>
+    <div class="recording" id="recordingMessage">Recording audio...</div>
+</div>
+
+<!-- Text-to-Speech Button -->
+<div style="text-align: center; margin-top: 20px;">
+    <button id="textToSpeechButton" onclick="requestTextToSpeech()">
+        <i class="fas fa-volume-up"></i>
+    </button>
+</div>
+
+<!-- Input Section -->
+<div class="input-container">
+    <input type="text" id="textInput" placeholder="Ask Uet Chatbot" />
+    <button style='font-size:20px' id="sendTextButton" onclick="sendTextMessage()" ><i class="material-icons" >send</i></button>
+<!--    <button id="sendTextButton" onclick="sendTextMessage()">Send Text</button>-->
+<!--    <button id="recordingButton" onclick="startRecording()">Record Voice</button>-->
+    <button style='font-size:24px' id="recordingButton" onclick="startRecording()" ><i class='fas fa-microphone'></i></button>
+
+    <button style='font-size:24px' id="stopButton" onclick="stopRecording()"><i class='fas fa-microphone-slash'></i></button>
+    <button id="sendAudioButton" onclick="sendAudioQuery()">Send Audio</button>
+</div>
+
+<script>
+    let audioChunks = [];
+    let mediaRecorder;
+    let audioBlob;
+    let audioFiles = [];
+    let audioUrl;
+    let audio;
+
+    // Keep track of the bot message container
+let botMessageElement = null;
+
+// Add or update the message in the chat box
+function addMessage(text, sender) {
+    const chatBox = document.getElementById('chatBox');
+    let messageDiv;
+
+    // If it's a new message from the user
+    if (sender === 'user') {
+        messageDiv = document.createElement('div');
+        messageDiv.classList.add('chat-message', 'user');
+        messageDiv.innerText = text;
+        chatBox.appendChild(messageDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;  // Scroll to the bottom of chat
+    } else { // If it's a message from the bot
+        // Create a new div for each bot response
+        messageDiv = document.createElement('div');
+        messageDiv.classList.add('chat-message', 'bot');
+        messageDiv.innerText = text;
+        chatBox.appendChild(messageDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;  // Scroll to the bottom of chat
+    }
+
+    return messageDiv; // Return the created message div
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!--    // Add message to the chat box-->
+<!--    function addMessage(text, sender, isAudio = false, audioIndex = -1) {-->
+<!--      const chatBox = document.getElementById('chatBox');-->
+<!--      const messageDiv = document.createElement('div');-->
+<!--      messageDiv.classList.add('chat-message', sender);-->
+
+<!--      if (isAudio) {-->
+<!--        const audioMessage = document.createElement('div');-->
+<!--        audioMessage.classList.add('voice-message');-->
+<!--        const audioElement = document.createElement('audio');-->
+<!--        audioElement.controls = true;-->
+<!--        audioElement.src = URL.createObjectURL(audioFiles[audioIndex]);-->
+<!--        audioMessage.appendChild(audioElement);-->
+<!--        messageDiv.appendChild(audioMessage);-->
+<!--      } else {-->
+<!--        messageDiv.innerText = text;-->
+<!--      }-->
+
+<!--      chatBox.appendChild(messageDiv);-->
+<!--      chatBox.scrollTop = chatBox.scrollHeight;  // Scroll to the bottom of chat-->
+<!--    }-->
+
+    // Show loading animation
+    function showLoading() {
+      document.getElementById('loadingMessage').style.display = 'block';
+    }
+
+    function hideLoading() {
+      document.getElementById('loadingMessage').style.display = 'none';
+    }
+
+    // Show recording indicator
+    function showRecording() {
+      document.getElementById('recordingMessage').style.display = 'block';
+    }
+
+    function hideRecording() {
+      document.getElementById('recordingMessage').style.display = 'none';
+    }
+
+    // Start recording audio
+    function startRecording() {
+      audioChunks = [];
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = event => {
+              audioChunks.push(event.data);
+            };
+            mediaRecorder.onstop = () => {
+              audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+              audioUrl = URL.createObjectURL(audioBlob);
+              audio = new Audio(audioUrl);
+              audioFiles.push(audioBlob);  // Store the audio file in the array
+<!--              document.getElementById('sendAudioButton').style.display = 'inline-block';-->
+              addMessage('Audio recorded', 'user', true, audioFiles.length - 1);
+              sendAudioQuery();  // Automatically send audio when recording stops
+            };
+            mediaRecorder.start();
+            showRecording();
+            document.getElementById('recordingButton').style.display = 'none';  // Hide start button
+            document.getElementById('stopButton').style.display = 'inline-block';  // Show stop button
+          })
+          .catch(err => console.log('Error accessing microphone: ' + err));
+      } else {
+        alert("Audio recording not supported in this browser.");
+      }
+    }
+
+    // Stop recording audio
+    function stopRecording() {
+      mediaRecorder.stop();
+      hideRecording();
+      document.getElementById('stopButton').style.display = 'none';  // Hide stop button
+<!--      document.getElementById('recordingButton').style.display = 'inline-block';  // Show start button-->
+
+    }
+
+    // Send audio file to the backend
+    function sendAudioQuery() {
+      const formData = new FormData();
+      formData.append('file', audioFiles[audioFiles.length - 1], 'audio.wav');
+
+      addMessage('Sending audio...', 'user'); // Display a sending message in chat
+      showLoading();  // Show loading animation
+
+      fetch('/chatbot/audio', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.text())
+      .then(data => {
+        addMessage(data, 'bot'); // Show bot's response
+        hideLoading();  // Hide loading animation
+        document.getElementById('recordingButton').style.display = 'inline-block';  // Show start button after sending
+        document.getElementById('sendAudioButton').style.display = 'none';  // Hide send button after sending
+
+      })
+      .catch(error => {
+        addMessage("Error: " + error.message, 'bot');
+        hideLoading();  // Hide loading animation
+        document.getElementById('recordingButton').style.display = 'inline-block';  // Show start button after error
+        document.getElementById('sendAudioButton').style.display = 'none';  // Hide send button after error
+      });
+    }
+// Send text message to the backend
+function sendTextMessage() {
+    const textInput = document.getElementById('textInput');
+    const textMessage = textInput.value.trim();
+
+    if (textMessage === "") {
+        alert("Please type a message!");
+        return;
+    }
+
+    addMessage(textMessage, 'user'); // Add user message to the chat
+    showLoading();  // Show loading animation
+
+    // Send text to backend
+    fetch('/chatbot/query', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: textMessage }) // Send the message as JSON
+    })
+    .then(response => {
+        if (!response.body) {
+            throw new Error("Streaming not supported by response.");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let done = false;
+        let output = "";
+         let botMessageElement = addMessage("Bot is typing...", 'bot'); // Initially show a loading message
+
+        // Read the stream in chunks and append to the output
+        reader.read().then(function processText({ done, value }) {
+            if (done) {
+                botMessageElement.innerText = output;
+                hideLoading();  // Hide loading animation
+                document.getElementById('textToSpeechButton').style.display = 'inline-block';  // Show Text-to-Speech button after response
+                return;
+            }
+
+            // Decode the chunk and append to the output
+            output += decoder.decode(value, { stream: true });
+             botMessageElement.innerText = output;
+            reader.read().then(processText);
+        });
+    })
+    .catch(error => {
+        addMessage("Error: " + error.message, 'bot');
+        hideLoading();  // Hide loading animation
+    });
+
+    // Clear the input field after sending the message
+    textInput.value = '';
+}
+
+
+   function requestTextToSpeech() {
+    const url = `/chatbot/tts?response=${encodeURIComponent()}`;
+
+    showRecording(); // Show recording indicator during audio processing
+    document.getElementById('textToSpeechButton').style.display = 'none';
+
+    fetch(url)
+        .then(response => response.blob()) // Get audio as Blob
+        .then(audioBlob => {
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audioPlayer = new Audio(audioUrl);
+
+            hideRecording(); // Hide recording indicator after audio is ready
+            audioPlayer.play(); // Play the audio
+
+            // Ensure the button only reappears after the audio finishes
+            audioPlayer.addEventListener('ended', () => {
+                document.getElementById('textToSpeechButton').style.display = 'inline-block';
+            });
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            hideRecording(); // Hide recording indicator in case of an error
+            alert("Failed to convert text to speech.");
+        });
+}
+
+
+</script>
+
+</body>
+</html>
